@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Azure Defender File Scanning API
+  description: >
+    An Azure Function that accepts file uploads via HTTP, scans them using
+    Microsoft Defender for Storage, and returns a verdict. Supports verdict-only
+    and save-on-safe scanning modes.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://{functionAppName}.azurewebsites.net/api
+    variables:
+      functionAppName:
+        default: my-av-function
+        description: The Azure Function App name.
+
+paths:
+  /scan:
+    post:
+      operationId: scanFile
+      summary: Upload and scan a file for malware
+      description: >
+        Uploads a file to blob storage, waits for Microsoft Defender for Storage
+        to produce a scan verdict, and returns the result. The blob is cleaned up
+        automatically in verdict_only mode and when a file is found to be unsafe
+        in save_on_safe mode.
+      parameters:
+        - name: filename
+          in: query
+          required: true
+          description: >
+            The name of the file being uploaded, including its extension.
+            The extension must be present in the AV_ALLOWED_EXTENSIONS whitelist.
+          schema:
+            type: string
+          example: report.pdf
+        - name: mode
+          in: query
+          required: false
+          description: >
+            The scanning mode.
+            - verdict_only: returns safe/unsafe, always deletes the blob.
+            - save_on_safe: returns safe/unsafe; if safe, keeps the blob and returns its URI.
+          schema:
+            type: string
+            enum:
+              - verdict_only
+              - save_on_safe
+            default: verdict_only
+      security:
+        - entraId: []
+      requestBody:
+        required: true
+        description: The raw file bytes to scan.
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Scan completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResponse"
+              examples:
+                safe_verdict_only:
+                  summary: Safe file (verdict_only mode)
+                  value:
+                    verdict: safe
+                unsafe_verdict_only:
+                  summary: Unsafe file (verdict_only mode)
+                  value:
+                    verdict: unsafe
+                safe_save_on_safe:
+                  summary: Safe file (save_on_safe mode)
+                  value:
+                    verdict: safe
+                    blob_uri: https://mystorageaccount.blob.core.windows.net/av-scanning/abc-def/report.pdf
+                unsafe_save_on_safe:
+                  summary: Unsafe file (save_on_safe mode)
+                  value:
+                    verdict: unsafe
+        "400":
+          description: Bad request due to invalid mode, missing filename, disallowed extension, or empty body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid_mode:
+                  value:
+                    error: "Invalid mode. Use 'verdict_only' or 'save_on_safe'."
+                missing_filename:
+                  value:
+                    error: "A 'filename' query parameter or Content-Disposition header is required."
+                extension_not_allowed:
+                  value:
+                    error: "File extension not allowed. Allowed: .pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv"
+                empty_body:
+                  value:
+                    error: "Request body is empty. Provide the file in the request body."
+        "500":
+          description: Internal error during blob upload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                upload_failure:
+                  value:
+                    error: "Failed to upload file for scanning."
+        "504":
+          description: Defender scan timed out without returning a verdict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                timeout:
+                  value:
+                    error: "Scan timed out. No verdict was returned by Defender."
+
+components:
+  securitySchemes:
+    entraId:
+      type: oauth2
+      description: >
+        Microsoft Entra ID (Azure AD) authentication via managed identity.
+        The caller obtains a bearer token for the Function App's application ID
+        and passes it in the Authorization header.
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          scopes: {}
+  schemas:
+    ScanResponse:
+      type: object
+      required:
+        - verdict
+      properties:
+        verdict:
+          type: string
+          enum:
+            - safe
+            - unsafe
+          description: The malware scan verdict.
+        blob_uri:
+          type: string
+          format: uri
+          description: >
+            The blob storage URI of the scanned file. Only present when the
+            verdict is safe and mode is save_on_safe.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: A human-readable error message.

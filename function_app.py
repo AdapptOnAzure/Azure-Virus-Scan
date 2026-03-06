@@ -1,5 +1,6 @@
 import json, os, time, logging, uuid
 from urllib.request import urlopen, Request
+from urllib.parse import quote
 from urllib.error import URLError, HTTPError
 from datetime import datetime, timedelta, timezone
 import azure.functions as func  # type: ignore
@@ -178,7 +179,7 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    blob_name = f"{uuid.uuid4()}/{filename}"
+    blob_name = f"{uuid.uuid4()}/{quote(filename, safe='')}"
     blob_client = BlobStorageClient(STORAGE_ACCOUNT_NAME)
 
     try:

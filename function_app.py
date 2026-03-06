@@ -1,7 +1,7 @@
-import json, os, time, logging, uuid
+import json, os, time, logging, uuid, xml.etree.ElementTree as ET
 from urllib.request import urlopen, Request
 from urllib.parse import quote
-from urllib.error import URLError, HTTPError
+from urllib.error import URLError
 from datetime import datetime, timedelta, timezone
 import azure.functions as func  # type: ignore
 
@@ -68,25 +68,27 @@ class BlobStorageClient:
         }
         url = f"{self.base_url}/{container_name}/{blob_name}"
         req = Request(url, headers=headers, method="PUT", data=content)
-        urlopen(req)
+        urlopen(req, timeout=30)
         return True
 
-    def get_blob_metadata(self, container_name, blob_name):
+    def get_blob_tags(self, container_name, blob_name):
         token = self.auth.get_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
             "x-ms-version": "2021-08-06",
             "x-ms-date": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
         }
-        url = f"{self.base_url}/{container_name}/{blob_name}?comp=metadata"
+        url = f"{self.base_url}/{container_name}/{blob_name}?comp=tags"
         req = Request(url, headers=headers, method="GET")
-        response = urlopen(req)
-        metadata = {}
-        for header_name, header_value in response.headers.items():
-            if header_name.lower().startswith("x-ms-meta-"):
-                key = header_name[len("x-ms-meta-"):]
-                metadata[key] = header_value
-        return metadata
+        response = urlopen(req, timeout=30)
+        body = response.read().decode("utf-8")
+        root = ET.fromstring(body)
+        tags = {}
+        for tag in root.iter("Tag"):
+            key = tag.find("Key").text
+            value = tag.find("Value").text
+            tags[key] = value
+        return tags
 
     def delete_blob(self, container_name, blob_name):
         token = self.auth.get_access_token()
@@ -98,7 +100,7 @@ class BlobStorageClient:
         }
         url = f"{self.base_url}/{container_name}/{blob_name}"
         req = Request(url, headers=headers, method="DELETE")
-        urlopen(req)
+        urlopen(req, timeout=30)
         return True
 
     def get_blob_url(self, container_name, blob_name):
@@ -113,17 +115,20 @@ def is_extension_allowed(filename):
     return f".{ext.lower()}" in allowed
 
 
+SCAN_RESULT_TAG = "Malware scanning scan result"
+
+
 def poll_scan_result(blob_client, container_name, blob_name):
     t0 = time.time()
     while time.time() - t0 < SCAN_POLL_TIMEOUT:
         try:
-            metadata = blob_client.get_blob_metadata(container_name, blob_name)
+            tags = blob_client.get_blob_tags(container_name, blob_name)
         except Exception as e:
-            LOGGER.warning(f"Error fetching metadata: {e}")
+            LOGGER.warning(f"Error fetching blob tags: {e}")
             time.sleep(SCAN_POLL_INTERVAL)
             continue
 
-        scan_result = metadata.get("Malware_Scanning_Result") or metadata.get("malware_scanning_result")
+        scan_result = tags.get(SCAN_RESULT_TAG)
         if scan_result is not None:
             LOGGER.info(f"Scan result for {blob_name}: {scan_result}")
             return scan_result
@@ -201,7 +206,20 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    is_clean = scan_result.lower() in ("no threats found", "no_threats_found")
+    is_clean = scan_result == "No threats found"
+    is_malicious = scan_result == "Malicious"
+    is_error = not is_clean and not is_malicious
+
+    if is_error:
+        try:
+            blob_client.delete_blob(CONTAINER_NAME, blob_name)
+        except Exception:
+            pass
+        return func.HttpResponse(
+            json.dumps({"error": scan_result}),
+            status_code=422,
+            mimetype="application/json",
+        )
 
     if mode == "verdict_only":
         try:

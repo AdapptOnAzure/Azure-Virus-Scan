@@ -98,6 +98,11 @@ The `mode` query parameter is optional and defaults to `verdict_only`. Valid val
 {"error": "Scan timed out. No verdict was returned by Defender."}
 ```
 
+**Scan error (422)**
+```json
+{"error": "SAM259210: Scan failed - blob is protected by password."}
+```
+
 **File too large (413)**
 ```json
 {"error": "File exceeds the maximum allowed size of 2 GB."}
@@ -116,8 +121,8 @@ The `mode` query parameter is optional and defaults to `verdict_only`. Valid val
 1. The caller POSTs a file to the Azure Function with a filename and scanning mode
 2. The function validates the file extension against the configured whitelist
 3. The file is uploaded to Azure Blob Storage under a UUID-prefixed path
-4. Microsoft Defender for Storage automatically scans the blob and writes the result to blob metadata (`Malware_Scanning_Result`)
-5. The function polls the blob metadata until the scan result appears or a timeout is reached
+4. Microsoft Defender for Storage automatically scans the blob and writes the result as a blob index tag (`Malware scanning scan result`)
+5. The function polls the blob index tags until the scan result appears or a timeout is reached
 6. The function returns the verdict to the caller and cleans up the blob as appropriate for the scanning mode
 
 # OpenAPI

@@ -104,6 +104,19 @@ paths:
                 empty_body:
                   value:
                     error: "Request body is empty. Provide the file in the request body."
+        "422":
+          description: Defender could not scan the file due to an error (e.g. password-protected, encrypted, archive nesting exceeded).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                password_protected:
+                  value:
+                    error: "SAM259210: Scan failed - blob is protected by password."
+                archive_nesting:
+                  value:
+                    error: "SAM259211: Scan failed - maximum archive nesting depth exceeded."
         "413":
           description: File exceeds the maximum allowed size of 2 GB.
           content:

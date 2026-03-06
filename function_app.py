@@ -40,8 +40,6 @@ class BlobStorageAuth:
         try:
             req = Request(resource_url, headers=headers, method="GET")
             response = urlopen(req, timeout=30)
-            if response.status != 200:
-                raise Exception(f"Failed to obtain token. Status code: {response.status}")
             response_data = json.loads(response.read())
             self.token = response_data["access_token"]
             self.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -68,7 +66,7 @@ class BlobStorageClient:
         }
         url = f"{self.base_url}/{container_name}/{blob_name}"
         req = Request(url, headers=headers, method="PUT", data=content)
-        urlopen(req, timeout=30)
+        urlopen(req, timeout=60)
         return True
 
     def get_blob_tags(self, container_name, blob_name):

@@ -13,7 +13,8 @@ MANAGED_IDENTITY_CLIENT_ID = os.environ.get("AV_MANAGED_IDENTITY_CLIENT_ID")
 ALLOWED_EXTENSIONS = os.environ.get("AV_ALLOWED_EXTENSIONS", ".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv")
 SCAN_POLL_INTERVAL = int(os.environ.get("AV_SCAN_POLL_INTERVAL", "2"))
 SCAN_POLL_TIMEOUT = int(os.environ.get("AV_SCAN_POLL_TIMEOUT", "300"))
-MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB - Defender for Storage will not scan files larger than this
+DEFENDER_MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024  # 50 GB - Defender for Storage will not scan files larger than this
+MAX_FILE_SIZE = min(int(os.environ.get("AV_MAX_FILE_SIZE_MB", "1024")) * 1024 * 1024, DEFENDER_MAX_FILE_SIZE)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
@@ -166,7 +167,7 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
     file_content = req.get_body()
     if len(file_content) > MAX_FILE_SIZE:
         return func.HttpResponse(
-            json.dumps({"error": "File exceeds the maximum allowed size of 2 GB."}),
+            json.dumps({"error": f"File exceeds the maximum allowed size of {MAX_FILE_SIZE // (1024 * 1024)} MB."}),
             status_code=413,
             mimetype="application/json",
         )

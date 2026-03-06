@@ -118,7 +118,7 @@ paths:
                   value:
                     error: "SAM259211: Scan failed - maximum archive nesting depth exceeded."
         "413":
-          description: File exceeds the maximum allowed size of 2 GB.
+          description: File exceeds the maximum allowed size configured via AV_MAX_FILE_SIZE_MB (capped at 50 GB).
           content:
             application/json:
               schema:
@@ -126,7 +126,7 @@ paths:
               examples:
                 file_too_large:
                   value:
-                    error: "File exceeds the maximum allowed size of 2 GB."
+                    error: "File exceeds the maximum allowed size of 1024 MB."
         "500":
           description: Internal error during blob upload.
           content:

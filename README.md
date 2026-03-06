@@ -52,6 +52,7 @@ Sample values are provided below.
 - "AV_CONTAINER_NAME"          = "av-scanning"
 - "AV_MANAGED_IDENTITY_CLIENT_ID" = "00000000-0000-0000-0000-000000000000"
 - "AV_ALLOWED_EXTENSIONS"      = ".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv"
+- "AV_MAX_FILE_SIZE_MB"        = "1024"
 - "AV_SCAN_POLL_INTERVAL"      = "2"
 - "AV_SCAN_POLL_TIMEOUT"       = "300"
 
@@ -67,7 +68,7 @@ Content-Type: application/octet-stream
 <raw file bytes>
 ```
 
-The `filename` query parameter is required. The file extension must be present in the `AV_ALLOWED_EXTENSIONS` whitelist. Files larger than 2 GB are rejected, as Microsoft Defender for Storage will not scan them.
+The `filename` query parameter is required. The file extension must be present in the `AV_ALLOWED_EXTENSIONS` whitelist. Files larger than the configured `AV_MAX_FILE_SIZE_MB` limit are rejected.
 
 The `mode` query parameter is optional and defaults to `verdict_only`. Valid values are `verdict_only` and `save_on_safe`.
 
@@ -105,12 +106,12 @@ The `mode` query parameter is optional and defaults to `verdict_only`. Valid val
 
 **File too large (413)**
 ```json
-{"error": "File exceeds the maximum allowed size of 2 GB."}
+{"error": "File exceeds the maximum allowed size of 1024 MB."}
 ```
 
 # Limitations
 
-- Microsoft Defender for Storage will not scan files larger than 2 GB. This function enforces this limit and rejects oversized files.
+- Microsoft Defender for Storage will not scan files larger than 50 GB. The maximum file size is configurable via `AV_MAX_FILE_SIZE_MB` (default: 1024 MB) and is capped at 50 GB regardless of the configured value. In practice, the Azure Functions memory limit will be the real constraint for large files.
 - Scan duration varies based on file size, file type, and service load. There is no SLA on scan time.
 - Password-protected archives, client-side encrypted blobs, and archive tier blobs cannot be scanned by Defender.
 - The default monthly scanning cap is 10 TB per storage account. Once exceeded, scanning stops for the remainder of the month.

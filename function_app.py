@@ -12,6 +12,7 @@ MANAGED_IDENTITY_CLIENT_ID = os.environ.get("AV_MANAGED_IDENTITY_CLIENT_ID")
 ALLOWED_EXTENSIONS = os.environ.get("AV_ALLOWED_EXTENSIONS", ".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.gif,.txt,.csv")
 SCAN_POLL_INTERVAL = int(os.environ.get("AV_SCAN_POLL_INTERVAL", "2"))
 SCAN_POLL_TIMEOUT = int(os.environ.get("AV_SCAN_POLL_TIMEOUT", "300"))
+MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB - Defender for Storage will not scan files larger than this
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
@@ -164,6 +165,12 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     file_content = req.get_body()
+    if len(file_content) > MAX_FILE_SIZE:
+        return func.HttpResponse(
+            json.dumps({"error": "File exceeds the maximum allowed size of 2 GB."}),
+            status_code=413,
+            mimetype="application/json",
+        )
     if not file_content:
         return func.HttpResponse(
             json.dumps({"error": "Request body is empty. Provide the file in the request body."}),

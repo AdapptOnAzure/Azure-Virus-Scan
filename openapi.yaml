@@ -116,6 +116,16 @@ paths:
                 empty_body:
                   value:
                     error: "Request body is empty. Provide the file in the request body."
+        "413":
+          description: File exceeds the maximum allowed size of 2 GB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                file_too_large:
+                  value:
+                    error: "File exceeds the maximum allowed size of 2 GB."
         "500":
           description: Internal error during blob upload.
           content:

@@ -30,6 +30,7 @@ The list here assumes you will be using dedicated Azure resources for file scann
 - Azure Storage Account
    - Must have Microsoft Defender for Storage enabled with malware scanning
    - Must have a blob container created for scanning (default name: `av-scanning`)
+   - Must have a lifecycle management policy configured to automatically delete blobs older than 30 minutes in the scanning container, as a safety net for orphaned blobs
    - Must be network accessible by the Azure Function
    - Must grant the Azure Function's User Assigned Managed Identity the Azure RBAC role of "Storage Blob Data Contributor"
 - Azure Function
@@ -66,7 +67,7 @@ Content-Type: application/octet-stream
 <raw file bytes>
 ```
 
-The `filename` query parameter is required. The file extension must be present in the `AV_ALLOWED_EXTENSIONS` whitelist.
+The `filename` query parameter is required. The file extension must be present in the `AV_ALLOWED_EXTENSIONS` whitelist. Files larger than 2 GB are rejected, as Microsoft Defender for Storage will not scan them.
 
 The `mode` query parameter is optional and defaults to `verdict_only`. Valid values are `verdict_only` and `save_on_safe`.
 
@@ -96,6 +97,19 @@ The `mode` query parameter is optional and defaults to `verdict_only`. Valid val
 ```json
 {"error": "Scan timed out. No verdict was returned by Defender."}
 ```
+
+**File too large (413)**
+```json
+{"error": "File exceeds the maximum allowed size of 2 GB."}
+```
+
+# Limitations
+
+- Microsoft Defender for Storage will not scan files larger than 2 GB. This function enforces this limit and rejects oversized files.
+- Scan duration varies based on file size, file type, and service load. There is no SLA on scan time.
+- Password-protected archives, client-side encrypted blobs, and archive tier blobs cannot be scanned by Defender.
+- The default monthly scanning cap is 10 TB per storage account. Once exceeded, scanning stops for the remainder of the month.
+- Throughput is limited to 50 GB per minute per storage account. Sustained upload rates above this may result in unscanned blobs.
 
 # How it works
 

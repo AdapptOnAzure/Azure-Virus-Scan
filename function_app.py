@@ -56,13 +56,13 @@ class BlobStorageClient:
         self.auth = BlobStorageAuth()
         self.base_url = f"https://{storage_account_name}.blob.core.windows.net"
 
-    def upload_blob(self, container_name, blob_name, content, content_type="application/octet-stream"):
+    def upload_blob(self, container_name, blob_name, content):
         token = self.auth.get_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
             "x-ms-version": "2021-08-06",
             "x-ms-date": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
-            "Content-Type": content_type,
+            "Content-Type": "application/octet-stream",
             "Content-Length": str(len(content)),
             "x-ms-blob-type": "BlockBlob",
         }
@@ -147,13 +147,8 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
 
     filename = req.params.get("filename")
     if not filename:
-        content_disposition = req.headers.get("Content-Disposition", "")
-        if "filename=" in content_disposition:
-            filename = content_disposition.split("filename=")[-1].strip().strip('"')
-
-    if not filename:
         return func.HttpResponse(
-            json.dumps({"error": "A 'filename' query parameter or Content-Disposition header is required."}),
+            json.dumps({"error": "A 'filename' query parameter is required."}),
             status_code=400,
             mimetype="application/json",
         )
@@ -183,8 +178,7 @@ def scan_file(req: func.HttpRequest) -> func.HttpResponse:
     blob_client = BlobStorageClient(STORAGE_ACCOUNT_NAME)
 
     try:
-        content_type = req.headers.get("Content-Type", "application/octet-stream")
-        blob_client.upload_blob(CONTAINER_NAME, blob_name, file_content, content_type)
+        blob_client.upload_blob(CONTAINER_NAME, blob_name, file_content)
         LOGGER.info(f"Uploaded {blob_name} to {CONTAINER_NAME}")
     except Exception as e:
         LOGGER.error(f"Failed to upload blob: {e}")

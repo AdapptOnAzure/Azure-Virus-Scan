@@ -14,7 +14,7 @@ ALLOWED_EXTENSIONS = os.environ.get("AV_ALLOWED_EXTENSIONS", ".pdf,.docx,.xlsx,.
 SCAN_POLL_INTERVAL = int(os.environ.get("AV_SCAN_POLL_INTERVAL", "2"))
 SCAN_POLL_TIMEOUT = int(os.environ.get("AV_SCAN_POLL_TIMEOUT", "300"))
 DEFENDER_MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024  # 50 GB - Defender for Storage will not scan files larger than this
-MAX_FILE_SIZE = min(int(os.environ.get("AV_MAX_FILE_SIZE_MB", "1024")) * 1024 * 1024, DEFENDER_MAX_FILE_SIZE)
+MAX_FILE_SIZE = min(int(os.environ.get("AV_MAX_FILE_SIZE_MB", "512")) * 1024 * 1024, DEFENDER_MAX_FILE_SIZE)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())

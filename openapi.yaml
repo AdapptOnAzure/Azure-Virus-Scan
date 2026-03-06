@@ -126,7 +126,7 @@ paths:
               examples:
                 file_too_large:
                   value:
-                    error: "File exceeds the maximum allowed size of 1024 MB."
+                    error: "File exceeds the maximum allowed size of 512 MB."
         "500":
           description: Internal error during blob upload.
           content:
